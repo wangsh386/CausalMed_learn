@@ -60,29 +60,71 @@ def eval_one_epoch(model, data_eval, voc_size):
 
 
 def Test(model, device, data_test, voc_size):
+    """模型测试函数：评估模型在测试集上的性能
+    
+    Args:
+        model (nn.Module): 待测试的模型
+        device (torch.device): 计算设备 (CPU/GPU)
+        data_test (list): 测试数据集
+        voc_size (tuple): 各类型（诊断、操作、药物）词汇表大小
+    """
+    # 将模型设为评估模式并移至目标设备
     model = model.to(device).eval()
     print('--------------------Begin Testing--------------------')
+    
+    # 初始化指标存储列表
     ddi_list, ja_list, prauc_list, f1_list, med_list = [], [], [], [], []
-    tic, result, sample_size = time.time(), [], round(len(data_test) * 0.8)
+    
+    # 计时器和结果容器初始化
+    tic = time.time()  # 开始计时
+    result = []        # 存储10次采样的评估结果
+    sample_size = round(len(data_test) * 0.8)  # 每次采样80%数据
+    
+    # 固定随机种子确保可重复性
     np.random.seed(0)
+    
+    # 进行10次随机采样评估
     for _ in range(10):
-        selected_indices = np.random.choice(len(data_test), size=round(len(data_test) * 0.8), replace=True)
+        # 随机选择样本索引（允许重复采样）
+        selected_indices = np.random.choice(
+            len(data_test), 
+            size=sample_size, 
+            replace=True  # 允许重复以增加评估稳定性
+        )
         selected_indices_list = selected_indices.tolist()
+        
+        # 根据索引构建测试子集
         test_sample = [data_test[i] for i in selected_indices_list]
-        ddi_rate, ja, prauc, avg_p, avg_r, avg_f1, avg_med = eval_one_epoch(model, test_sample, voc_size)
+        
+        # 执行单次评估并获取指标
+        ddi_rate, ja, prauc, avg_p, avg_r, avg_f1, avg_med = eval_one_epoch(
+            model, test_sample, voc_size
+        )
+        
+        # 收集本次评估结果
         result.append([ja, ddi_rate, avg_f1, prauc, avg_med])
+    
+    # 计算10次评估的均值和标准差
     result = np.array(result)
-    mean, std = result.mean(axis=0), result.std(axis=0)
+    mean = result.mean(axis=0)  # 按列求均值
+    std = result.std(axis=0)     # 按列求标准差
+    
+    # 指标名称列表（用于结果格式化）
     metric_list = ['ja', 'ddi_rate', 'avg_f1', 'prauc', 'med']
+    
+    # 格式化输出字符串（LaTeX表格风格）
     outstring = ''.join([
         "{}:\t{:.4f} $\\pm$ {:.4f} & \n".format(metric_list[idx], m, s)
         for idx, (m, s) in enumerate(zip(mean, std))
     ])
-
+    
+    # 打印最终结果
     print(outstring)
-    print('average test time: {}'.format((time.time() - tic) / 10))
-    print('parameters', get_n_params(model))
-
+    
+    # 输出平均测试时间和模型参数量
+    print('平均测试时间: {:.2f}s'.format((time.time() - tic) / 10))
+    print('模型参数量: {:,}'.format(get_n_params(model)))
+    
 
 def Train(model, device, data_train, data_eval, voc_size, args):
     regular = Regularization(model, args.regular, p=0)  # 正则化模型

@@ -42,10 +42,9 @@ def parse_args():
     args = parser.parse_args()
     if args.Test and args.resume_path is None:
         raise FileNotFoundError('Can\'t Load Model Weight From Empty Dir')
-
     return args
 
-
+# 针对我们的新任务，train应该不需要改变？
 if __name__ == '__main__':
     set_seed()
     args = parse_args()

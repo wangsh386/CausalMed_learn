@@ -178,7 +178,8 @@ class CausalMed(torch.nn.Module):
             emb_med3 = self.rho[2, 0] * emb_med1 + self.rho[2, 1] * emb_med2
 
             # 聚合当前就诊的特征（沿实体维度求和）
-            # 输出形状：seq_diag元素为(1, 1, emb_dim)
+            # 输出形状：seq_diag元素为(1, 1, emb_dim)、
+            
             seq_diag.append(torch.sum(emb_diag3, keepdim=True, dim=1))
             seq_proc.append(torch.sum(emb_proc3, keepdim=True, dim=1))
             seq_med.append(torch.sum(emb_med3, keepdim=True, dim=1))

@@ -184,6 +184,70 @@ class CausalMed(torch.nn.Module):
             seq_proc.append(torch.sum(emb_proc3, keepdim=True, dim=1))
             seq_med.append(torch.sum(emb_med3, keepdim=True, dim=1))
 
+            if not hasattr(self, '_embeddings_saved'):
+                import pandas as pd
+                import os
+                
+                
+                embed_types = ['static', 'homo', 'hetero', 'fusion']
+                for et in embed_types:
+                    os.makedirs(f'./{et}_embeddings', exist_ok=True)
+            
+               
+                diag_static = self.embeddings[0].weight.detach().cpu().numpy()  # shape: (voc_size, emb_dim)
+                pro_static = self.embeddings[1].weight.detach().cpu().numpy()
+                med_static = self.embeddings[2].weight.detach().cpu().numpy()
+                
+                pd.DataFrame(diag_static).to_csv('./static_embeddings/diagnosis_static.csv', index_label='code_idx')
+                pd.DataFrame(pro_static).to_csv('./static_embeddings/procedure_static.csv', index_label='code_idx') 
+                pd.DataFrame(med_static).to_csv('./static_embeddings/medication_static.csv', index_label='code_idx')
+            
+              
+                def save_3d_tensor(tensor, path, index_name):
+                    arr = tensor.detach().cpu().numpy()
+                    reshaped = arr.reshape(-1, arr.shape[-1])  # 
+                    timesteps = np.repeat(np.arange(arr.shape[1]), arr.shape[0])  # 
+                    
+                    df = pd.DataFrame(reshaped, columns=[f"dim_{i}" for i in range(reshaped.shape[1])])
+                    df[index_name] = np.arange(reshaped.shape[0])  # 
+                    df['timestep'] = timesteps[:len(df)]           # 
+                    df.to_csv(path, index=False)
+            
+            
+                save_3d_tensor(emb_diag1, './homo_embeddings/diagnosis_homo.csv', 'node_id')
+                save_3d_tensor(emb_proc1, './homo_embeddings/procedure_homo.csv', 'node_id')
+                save_3d_tensor(emb_med1, './homo_embeddings/medication_homo.csv', 'node_id')
+            
+            
+                save_3d_tensor(emb_diag2, './hetero_embeddings/diagnosis_hetero.csv', 'interaction_id')
+                save_3d_tensor(emb_proc2, './hetero_embeddings/procedure_hetero.csv', 'interaction_id') 
+                save_3d_tensor(emb_med2, './hetero_embeddings/medication_hetero.csv', 'interaction_id')
+            
+            
+                def save_fusion(tensor, path):
+                    arr = tensor.detach().cpu().numpy()
+                    df = pd.DataFrame(arr.reshape(-1, arr.shape[-1]),  # 
+                                     columns=[f"dim_{i}" for i in range(arr.shape[-1])])
+                    df['visit_id'] = np.repeat(np.arange(arr.shape[0]), arr.shape[1])  # 
+                    df['seq_order'] = np.tile(np.arange(arr.shape[1]), arr.shape[0])    # 
+                    df.to_csv(path, index=False)
+            
+                save_fusion(emb_diag3, './fusion_embeddings/diagnosis_fusion.csv')
+                save_fusion(emb_proc3, './fusion_embeddings/procedure_fusion.csv')
+                save_fusion(emb_med3, './fusion_embeddings/medication_fusion.csv')
+            
+                print("\n finished：")
+                print(f"static_embeddings: {os.path.abspath('./static_embeddings')}")
+                print(f"homo_embeddings: {os.path.abspath('./homo_embeddings')}") 
+                print(f"hetero_embeddings: {os.path.abspath('./hetero_embeddings')}")
+                print(f"fusion_embeddings: {os.path.abspath('./fusion_embeddings')}")
+                
+                self._embeddings_saved = True
+                
+                print("..............................")
+                input() 
+                print("******************************")
+
         # ----------------- 序列编码 -----------------
         # 拼接所有就诊的序列（沿时间维度）
         # 输出形状：
